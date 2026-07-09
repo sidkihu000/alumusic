@@ -66,7 +66,8 @@ def load_data():
     return {
         "users": [],
         "total_downloads": 0,
-        "total_searches": 0
+        "total_searches": 0,
+        "video_id": None
     }
 
 def save_data(data):
@@ -153,6 +154,7 @@ def create_main_keyboard(chat_type="private"):
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     buttons = [
         types.KeyboardButton("🎵 𝐒𝐄𝐀𝐑𝐂𝐇 𝐌𝐔𝐒𝐈𝐂"),
+        types.KeyboardButton("🎬 𝐕𝐈𝐃𝐄𝐎"),
         types.KeyboardButton("📊 𝐒𝐓𝐀𝐓𝐒"),
         types.KeyboardButton("ℹ️ 𝐀𝐁𝐎𝐔𝐓"),
         types.KeyboardButton("📢 𝐒𝐇𝐀𝐑𝐄 𝐁𝐎𝐓"),
@@ -225,31 +227,9 @@ def start_command(message):
     welcome_text = f"""🎵 WELCOME TO ALIYA STREAM PRO 🎵
 
 ✨ Hello {first_name}! ✨
-
 Your ultimate destination for high-quality music streaming and downloads.
 
-━━━━━━━━━━━━━━━━
-🌟 WHAT I OFFER 🌟
-━━━━━━━━━━━━━━━━
-
-🎧 320KBPS Quality Audio
-⚡ Instant Music Delivery
-🔍 Smart Search System
-🖼️ Album Art Framing
-📥 Unlimited Downloads
-
-━━━━━━━━━━━━━━━━
-📖 HOW TO USE 📖
-━━━━━━━━━━━━━━━━
-
-1️⃣ Tap on "🎵 𝐒𝐄𝐀𝐑𝐂𝐇 𝐌𝐔𝐒𝐈𝐂"
-2️⃣ Send any song/artist name starting with 'find'
-3️⃣ Choose from search results
-4️⃣ Get instant high-quality audio!
-
-━━━━━━━━━━━━━━━━
-👨‍💻 Developer: Aliya (@reedagotsidd)
-━━━━━━━━━━━━━━━━"""
+Tap "🎵 𝐒𝐄𝐀𝐑𝐂𝐇 𝐌𝐔𝐒𝐈𝐂" or send a song name starting with 'find' (e.g., 'find Shape of You')."""
 
     markup = types.InlineKeyboardMarkup(row_width=2)
     btn_dev = types.InlineKeyboardButton("👨‍💻 Developer", url=SUPPORT_LINK)
@@ -433,6 +413,14 @@ Send /cancel to cancel ❌"""
 
     bot.send_message(message.chat.id, style_primary(search_prompt))
 
+@bot.message_handler(func=lambda message: message.text == "🎬 𝐕𝐈𝐃𝐄𝐎")
+def video_button_handler(message):
+    video_id = data.get("video_id")
+    if video_id:
+        bot.send_video(message.chat.id, video_id, caption=style_primary("🎬 Here is our featured video!"))
+    else:
+        bot.send_message(message.chat.id, style_primary("🎥 No video has been uploaded yet! Please check back later."))
+
 @bot.message_handler(func=lambda message: message.text == "📊 𝐒𝐓𝐀𝐓𝐒")
 def stats_button_handler(message):
     stats_command(message)
@@ -470,6 +458,7 @@ def admin_command(message):
 /ping - Check bot status
 /backup - Download user backup
 /announce - Make announcement
+/setvideo - Upload video for user menu
 
 ━━━━━━━━━━━━━━━━
 📊 QUICK INFO 📊
@@ -484,6 +473,29 @@ def admin_command(message):
 — @reedagotsidd"""
 
     bot.send_message(message.chat.id, style_primary(admin_text))
+
+@bot.message_handler(commands=['setvideo'])
+def set_video_command(message):
+    user_id = message.from_user.id
+    if not is_admin(user_id):
+        bot.send_message(message.chat.id, style_primary("❌ Access Denied!"))
+        return
+
+    msg = bot.send_message(message.chat.id, style_primary("🎬 Please send the video you want to set for the Video menu button.\n\nSend /cancel to cancel."))
+    bot.register_next_step_handler(msg, process_set_video)
+
+def process_set_video(message):
+    if message.text == '/cancel':
+        bot.send_message(message.chat.id, style_primary("❌ Video setup cancelled."))
+        return
+        
+    if not message.video:
+        bot.send_message(message.chat.id, style_primary("❌ You didn't send a valid video file. Please use /setvideo command to try again."))
+        return
+
+    data["video_id"] = message.video.file_id
+    save_data(data)
+    bot.send_message(message.chat.id, style_primary("✅ Video successfully uploaded and set! Users can now watch it via the Video button."))
 
 @bot.message_handler(commands=['ping'])
 def ping_command(message):
